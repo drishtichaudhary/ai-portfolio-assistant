@@ -2,8 +2,8 @@
 
 An intelligent chatbot assistant that helps recruiters and visitors learn about Drishti Chaudhary's background, skills, and experience through natural conversation.
 
-🔗 **Live Demo:** https://your-live-link  
-📂 **Repository:** https://github.com/your-username/ai-portfolio-assistant
+🔗 **Live Demo:** [AI Portfolio Assistant](https://drishtichaudhary.github.io/ai-portfolio-assistant/)  
+📂 **Repository:** https://github.com/drishtichaudhary/ai-portfolio-assistant
 
 ---
 
