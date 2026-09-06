@@ -275,10 +275,6 @@ The frontend is deployed as a static site, and the browser communicates with the
 
 ---
 
-## Screenshots
-
----
-
 ## Engineering Concepts Demonstrated
 
 - Vanilla JavaScript application structure
