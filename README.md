@@ -1,216 +1,462 @@
 # AI Portfolio Assistant
 
-An AI-assisted portfolio interaction system built with a static web client, a serverless API abstraction layer, and LLM-backed response generation. The frontend lets visitors ask questions about Drishti Chaudhary’s background through a conversational UI, while the browser sends each message to a Cloudflare Worker endpoint that processes the request and returns a JSON reply for rendering in the chat window.
+An LLM-powered conversational portfolio application that allows visitors to ask natural-language questions about Drishti Chaudhary's education, research, internships, projects, leadership, and technical skills.
 
-🔗 **Live Demo:** https://drishtichaudhary.github.io/ai-portfolio-assistant/  
-📂 **Repository:** https://github.com/drishtichaudhary/ai-portfolio-assistant/
+The system combines a lightweight static frontend with a separately deployed Cloudflare Worker backend and Groq-based LLM inference. The backend performs request validation, prompt-based context grounding, model invocation, fallback handling, and response normalization before returning the generated answer to the browser.
+
+**Live Demo:** https://drishtichaudhary.github.io/ai-portfolio-assistant/
+
+**Repository:** https://github.com/drishtichaudhary/ai-portfolio-assistant/
 
 ---
 
 ## Overview
 
-This project demonstrates a lightweight portfolio interface designed for interactive question-and-answer access to professional information. Instead of a static biography page, the site presents a chat-based experience where the frontend handles conversation input and display, while response generation is delegated to an external serverless API.
+Traditional portfolios require visitors to navigate multiple sections to locate relevant information. This project explores a conversational alternative: users can ask questions in natural language and receive concise responses grounded in structured portfolio information.
 
-The repository contains the client-side implementation and the endpoint reference used by the browser. The backend worker source is not included in the repository, so the README focuses on the implementation that is directly supported by the code and the deployed client behavior.
+For example, visitors can ask:
+
+- "What is Drishti's research experience?"
+- "What machine learning projects has she worked on?"
+- "Tell me about her DRDO internship."
+- "What are her technical skills?"
+- "What projects has she built using Flutter?"
+- "What are her research interests?"
+
+The application is intentionally lightweight. The frontend is implemented using HTML, CSS, and vanilla JavaScript, while the LLM integration is handled server-side through a Cloudflare Worker.
 
 ---
 
-## Architecture
+## System Architecture
 
 ```text
-User
-↓
-Browser UI
-(index.html + styles.css + script.js)
-↓ HTTPS POST { "message": "<user input>" }
-Cloudflare Worker endpoint
-↓
-Groq LLM API
-(Llama 3.1 8B Instant)
-↓ JSON { "reply": "<assistant response>" }
-Browser chat interface
-```
+                         User
+                           │
+                           ▼
+              ┌─────────────────────────┐
+              │     Static Frontend     │
+              │   HTML / CSS / JS       │
+              └────────────┬────────────┘
+                           │
+                    HTTPS POST
+              { "message": "..." }
+                           │
+                           ▼
+              ┌─────────────────────────┐
+              │    Cloudflare Worker    │
+              │                         │
+              │ • Request validation    │
+              │ • CORS handling         │
+              │ • Prompt construction   │
+              │ • API-key management    │
+              │ • Model fallback        │
+              └────────────┬────────────┘
+                           │
+                           ▼
+              ┌─────────────────────────┐
+              │       Groq API          │
+              │ OpenAI-compatible API   │
+              └────────────┬────────────┘
+                           │
+                           ▼
+                    LLM Inference
+                           │
+                           ▼
+                 { "reply": "..." }
+                           │
+                           ▼
+              ┌─────────────────────────┐
+              │     Frontend UI         │
+              │ Render assistant reply  │
+              └─────────────────────────┘
+````
 
-### Repository boundary
+### Component Responsibilities
 
-| Component | In repository? | Notes |
-|---|---:|---|
-| Chat UI markup | Yes | `index.html` |
-| Styling and responsive layout | Yes | `styles.css` |
-| Client-side chat logic | Yes | `script.js` |
-| Worker implementation | No | Only the endpoint URL is referenced |
-| Upstream LLM provider/model | External | Groq API with Llama 3.1 8B Instant |
+**Frontend**
+
+Responsible for:
+
+* capturing user input,
+* rendering conversation messages,
+* displaying the typing indicator,
+* sending asynchronous API requests,
+* and rendering the returned response.
+
+**Cloudflare Worker**
+
+Acts as the serverless application layer between the browser and the LLM provider. It is responsible for:
+
+* validating incoming requests,
+* handling CORS preflight requests,
+* reading the API key from an environment secret,
+* constructing the system prompt,
+* calling the Groq API,
+* handling model/API failures,
+* and returning a normalized JSON response.
+
+**Groq API**
+
+Provides the LLM inference layer through an OpenAI-compatible chat-completions interface.
 
 ---
 
-## Core Functionality
+## Key Features
 
-- Conversational portfolio chat interface
-- Message submission via **Enter** key or send button
-- Immediate rendering of user messages in the chat window
-- Typing indicator while waiting for the API response
-- Asynchronous `fetch()` request to a remote Worker endpoint
-- JSON response handling with a required `reply` field
-- Generic fallback message when the request fails
-- Responsive layout for smaller screens
-- HTML escaping for user-entered text before DOM insertion
+* Natural-language portfolio Q&A
+* LLM-powered response generation
+* Prompt-based context grounding
+* Serverless backend using Cloudflare Workers
+* Server-side API-key handling
+* Groq API integration
+* Sequential model fallback
+* CORS support
+* JSON request/response handling
+* Input validation
+* Graceful API failure handling
+* Asynchronous frontend communication
+* HTML escaping before DOM insertion
+* Responsive chat interface
 
 ---
 
-## Technical Implementation
+## Frontend Implementation
 
-### Frontend
+The client is intentionally implemented without a JavaScript framework.
 
-The application is implemented with plain HTML, CSS, and vanilla JavaScript:
+### Technologies
 
-- `index.html` defines the chat layout, message input, send button, typing indicator, and a short disclaimer.
-- `styles.css` defines the dark theme, bubble-based layout, responsive behavior, scrollbar styling, and loading animation.
-- `script.js` defines the chat behavior, API request flow, response rendering, and input sanitization.
+* HTML5
+* CSS3
+* Vanilla JavaScript
+* Google Fonts
 
-The page also imports Google Fonts (`DM Mono` and `Inter`) for typography.
+### `index.html`
 
-### Client-side interaction
+Defines the structure of the application, including:
 
-The interface is event-driven:
+* chat interface,
+* message container,
+* user input field,
+* send button,
+* typing indicator,
+* and introductory assistant message.
 
-- `onkeypress="handleKeyPress(event)"` submits the message on Enter.
-- `onclick="sendMessage()"` submits the message from the button.
-- `window.onload` focuses the input field when the page loads.
+### `styles.css`
 
-Message lifecycle:
+Provides:
 
-1. Read and trim the input value
-2. Ignore empty messages
-3. Append the user message to the chat window
-4. Clear the input field
-5. Show the typing indicator
-6. Send the message to the Worker
-7. Parse the JSON response
-8. Render the assistant reply
-9. Scroll the chat window to the latest message
+* dark-themed visual design,
+* chat bubble styling,
+* responsive layout,
+* mobile adaptation,
+* loading/typing animation,
+* and interface spacing and typography.
 
-### API communication
+### `script.js`
 
-The frontend sends a `POST` request to:
+Handles:
+
+* user message submission,
+* Enter-to-send interaction,
+* asynchronous API requests using `fetch()`,
+* typing indicator behavior,
+* assistant response rendering,
+* error fallback behavior,
+* and HTML escaping for user-generated text.
+
+---
+
+## Backend Architecture
+
+The Cloudflare Worker is maintained and deployed separately from this frontend repository.
+
+The browser communicates with the Worker through:
 
 ```text
-https://drishti-portfolio-ai.drishtichaudhary616.workers.dev/
+POST https://drishti-portfolio-ai.drishtichaudhary616.workers.dev/
 ```
 
-Request body:
+### Request
 
 ```json
 {
-  "message": "user question"
+  "message": "Tell me about Drishti's research experience."
 }
 ```
 
-Expected response shape:
+### Response
 
 ```json
 {
-  "reply": "assistant response"
+  "reply": "Drishti has research experience in machine-learning-based SQL injection detection..."
 }
 ```
 
-Relevant client-side request logic:
+The Worker validates that the request contains a non-empty string before invoking the LLM.
 
-```javascript
-const response = await fetch("https://drishti-portfolio-ai.drishtichaudhary616.workers.dev/", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ message: userMessage }),
-});
-```
-
-If the response is not OK, or if `reply` is missing, the frontend returns a generic connection error message.
-
-### Security / input handling
-
-User input is escaped before it is inserted into the DOM:
-
-```javascript
-function escapeHtml(text) {
-    const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
-}
-```
-
-This is a meaningful client-side safeguard because user-entered text is rendered in the chat UI. The repository does not expose API credentials in the frontend code.
+Malformed or invalid requests are handled without attempting an upstream model call.
 
 ---
 
-## AI / LLM Integration
+## LLM Integration
 
-The application uses a Cloudflare Worker as the serverless API layer, with the external backend configured to use Groq’s LLM API and Llama 3.1 8B Instant.
+The backend uses **Groq** as the LLM inference provider.
 
-### Verified architecture
-- The browser does not call the LLM provider directly.
-- Each user message is posted to a Worker endpoint as JSON.
-- The Worker returns a JSON reply that the frontend renders.
+The Worker communicates with Groq through its OpenAI-compatible chat-completions API.
 
-### Verifiable integration points
-- Client request payload: `{ "message": "<user input>" }`
-- Client response expectation: `{ "reply": "<assistant response>" }`
-- External model referenced by the project: **Llama 3.1 8B Instant**
+The model configuration currently uses a sequential fallback strategy:
 
-### Not included in this repository
-- The Worker source code
-- The full prompt template or system prompt
-- Any additional conversation-state logic beyond the current message flow
+1. `openai/gpt-oss-20b`
+2. `openai/gpt-oss-120b`
+3. `llama-3.1-8b-instant`
 
-This means the AI portion is implemented through a serverless API boundary, while the model logic itself is handled externally.
+Models are attempted sequentially rather than simultaneously. If a supported model/API failure occurs, the Worker proceeds to the next configured model.
+
+This provides a basic resilience mechanism against model-specific availability and rate-limit failures.
+
+### Generation Configuration
+
+The current Worker uses:
+
+```text
+temperature = 0.5
+max_tokens = 350
+```
+
+The relatively low temperature encourages more consistent and controlled responses for factual portfolio questions.
+
+---
+
+## Prompt-Based Knowledge Grounding
+
+The assistant is grounded using a structured system prompt containing portfolio information.
+
+The prompt includes information about:
+
+* education,
+* research experience,
+* internships,
+* leadership roles,
+* student organizations,
+* projects,
+* technical skills,
+* awards,
+* and professional interests.
+
+The user's message is sent separately as the user-level input.
+
+Conceptually:
+
+```text
+System Message
+    ↓
+Structured portfolio context
+    ↓
+User Message
+    ↓
+LLM
+    ↓
+Grounded response
+```
+
+This implementation uses **prompt-based grounding**, not Retrieval-Augmented Generation (RAG).
+
+The current system does not use:
+
+* embeddings,
+* vector databases,
+* document retrieval,
+* fine-tuning,
+* function calling,
+* or autonomous agent workflows.
+
+This distinction is intentional: the project demonstrates a lightweight LLM application architecture rather than a retrieval system.
+
+---
+
+## Request Lifecycle
+
+A typical interaction follows this sequence:
+
+1. The visitor enters a question.
+2. The frontend immediately displays the user's message.
+3. A typing indicator is displayed.
+4. JavaScript sends the question to the Cloudflare Worker using HTTPS.
+5. The Worker validates the request.
+6. The Worker constructs the LLM request using the structured portfolio context.
+7. The Worker sends the request to Groq.
+8. Groq performs model inference.
+9. The Worker extracts the generated response.
+10. The Worker returns a normalized JSON object containing `reply`.
+11. The frontend renders the assistant response.
+12. The typing indicator is removed.
+
+---
+
+## Reliability & Error Handling
+
+Because the application depends on an external inference API, failure handling is part of the backend design.
+
+The Worker implements:
+
+* CORS preflight handling
+* HTTP method validation
+* malformed JSON handling
+* empty-message validation
+* API-key existence checks
+* upstream API status checking
+* sequential model fallback
+* rate-limit handling
+* controlled user-facing error responses
+
+For example, if a configured model returns a supported error such as a rate-limit response, the Worker attempts the next model in the fallback sequence.
+
+The frontend also provides a generic fallback message when the backend cannot return a successful response.
+
+---
+
+## Security Considerations
+
+The system follows a basic client/server security boundary.
+
+### API Key Protection
+
+The Groq API key is stored as a **Cloudflare Worker environment secret**.
+
+The key is not included in:
+
+* `index.html`,
+* `styles.css`,
+* or `script.js`.
+
+The browser therefore communicates with the Worker rather than directly exposing provider credentials to the client.
+
+### Input Handling
+
+User-generated text is escaped before being inserted into the DOM.
+
+This reduces the risk of user input being interpreted as executable HTML when rendered in the chat interface.
+
+### Scope of Security
+
+These measures provide basic protection for a small portfolio application. The project is not intended to claim production-grade security.
+
+Features such as authentication, advanced abuse prevention, persistent audit logging, and sophisticated rate limiting are outside the current scope.
 
 ---
 
 ## Research & Engineering Relevance
 
-This project demonstrates how large language models can be integrated into an interactive software system rather than used as a standalone tool. It shows practical experience with API-based model integration, serverless architecture, asynchronous client-server communication, and client-side input handling.
+This project is primarily an **applied LLM engineering project**, rather than an academic research study.
 
-The separation between the frontend, the Cloudflare Worker API layer, and the external model provider also creates a clean boundary for extending the system with retrieval, conversation state, evaluation workflows, or other LLM-system research directions. For a portfolio project, that makes the implementation more useful than a static demo because it illustrates how model-backed behavior can be embedded into a maintainable web application.
+Its research relevance comes from the engineering questions involved in integrating language models into real software systems:
+
+* How should structured personal and professional knowledge be provided to an LLM?
+* How can generated responses be constrained to known information?
+* How should client and inference layers be separated?
+* How can API credentials be kept outside the browser?
+* How can a serverless application handle external model failures?
+* How can different models be incorporated into a fallback architecture?
+* How should response quality and factual consistency be evaluated?
+
+These questions connect the project to broader areas including:
+
+* Large Language Model applications
+* Natural Language Processing
+* Prompt Engineering
+* Human-Computer Interaction
+* Serverless Computing
+* AI Systems Engineering
+* Reliable API Design
 
 ---
 
-## Data Flow
+## Engineering Challenges & Learnings
 
-1. The user types a question into the input field.
-2. `sendMessage()` appends the user message to the chat window.
-3. The typing indicator is shown.
-4. `generateResponse()` sends the message as JSON to the Worker endpoint.
-5. The Worker forwards the request to Groq’s LLM API.
-6. Groq returns a structured response generated by Llama 3.1 8B Instant.
-7. The Worker returns JSON containing `reply`.
-8. The frontend inserts the reply into the conversation.
-9. If the request fails, the frontend displays a fallback error message.
+### 1. Client–Server Separation
 
-The frontend sends only the current message; there is no persistent conversation memory in the client code.
+A static frontend cannot safely contain provider credentials. The project therefore separates the browser interface from the LLM inference layer using a serverless Worker.
+
+### 2. Prompt-Based Grounding
+
+Portfolio information is provided as structured context to reduce unsupported responses and keep the assistant focused on known information.
+
+### 3. External API Reliability
+
+LLM APIs can experience rate limits or model-specific failures. The Worker therefore uses sequential model fallback rather than depending on a single model configuration.
+
+### 4. Asynchronous Communication
+
+The frontend uses asynchronous `fetch()` requests and manages intermediate UI states while waiting for the backend.
+
+### 5. Input Safety
+
+User input is escaped before DOM insertion to reduce HTML injection risks.
+
+### 6. Serverless Deployment
+
+The project demonstrates how a static frontend can communicate with a separately deployed serverless inference layer without requiring a traditional application server.
 
 ---
 
-## Technology Stack
+## Deployment
 
 ### Frontend
-- HTML
-- CSS
-- Vanilla JavaScript
-- Google Fonts: DM Mono, Inter
 
-### Backend / Serverless
-- Cloudflare Worker endpoint referenced by the frontend
+The frontend is deployed using **GitHub Pages**:
 
-### AI
-- Groq API
-- Llama 3.1 8B Instant
+[https://drishtichaudhary.github.io/ai-portfolio-assistant/](https://drishtichaudhary.github.io/ai-portfolio-assistant/)
 
-### Deployment
-- GitHub Pages for the static frontend
-- External Cloudflare Worker for the chat API
+### Backend
+
+The backend is deployed as a **Cloudflare Worker**.
+
+The frontend communicates with:
+
+```text
+https://drishti-portfolio-ai.drishtichaudhary616.workers.dev/
+```
+
+### Inference
+
+LLM inference is provided through the **Groq API**.
+
+The three components therefore have separate responsibilities:
+
+```text
+GitHub Pages
+    ↓
+Cloudflare Workers
+    ↓
+Groq API
+```
+
+---
+
+## Reproducibility
+
+The frontend source code is contained in this repository.
+
+The Cloudflare Worker backend is maintained separately because it contains server-side configuration and environment secrets.
+
+To reproduce the frontend:
+
+```bash
+git clone https://github.com/drishtichaudhary/ai-portfolio-assistant.git
+cd ai-portfolio-assistant
+python -m http.server 8000
+```
+
+Then open:
+
+```text
+http://localhost:8000
+```
+
+The frontend can run independently, but end-to-end AI responses require the deployed Worker endpoint.
+
+The Groq API key should **never** be placed in frontend source code.
 
 ---
 
@@ -224,110 +470,163 @@ ai-portfolio-assistant/
 └── README.md
 ```
 
-### File roles
+### File Roles
 
-- `index.html` — page structure and chat UI markup
-- `styles.css` — visual styling and responsive layout
-- `script.js` — event handling, API requests, DOM updates, and sanitization
-- `README.md` — project documentation
+| File         | Purpose                                              |
+| ------------ | ---------------------------------------------------- |
+| `index.html` | Chat interface structure                             |
+| `styles.css` | Visual design and responsive layout                  |
+| `script.js`  | User interaction, API communication, and DOM updates |
+| `README.md`  | Project documentation                                |
 
----
-
-## Running Locally
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/drishtichaudhary/ai-portfolio-assistant.git
-cd ai-portfolio-assistant
-```
-
-### 2. Open the frontend
-
-You can open `index.html` directly in a browser, or serve the folder with a static file server.
-
-Example using Python:
-
-```bash
-python -m http.server 8000
-```
-
-Then open:
-
-```text
-http://localhost:8000
-```
-
-### 3. Backend dependency
-
-The chatbot’s responses depend on the external Cloudflare Worker endpoint configured in `script.js`. Because the Worker source is not included in this repository, the complete application is not locally reproducible from this repo alone.
+> The Cloudflare Worker backend is deployed separately and is not included in this repository.
 
 ---
 
-## Deployment
+## Technical Skills Demonstrated
 
-- **Frontend:** GitHub Pages  
-  https://drishtichaudhary.github.io/ai-portfolio-assistant/
+### Frontend
 
-- **Backend/API:** External Cloudflare Worker endpoint referenced in `script.js`
+* HTML
+* CSS
+* JavaScript
+* DOM manipulation
+* Event handling
+* Responsive UI development
 
-The frontend is deployed as a static site, and the browser communicates with the Worker URL shown above to obtain chat responses.
+### AI / LLM
 
----
+* Large Language Model integration
+* Groq API
+* OpenAI-compatible API interfaces
+* Prompt engineering
+* Context grounding
+* Controlled text generation
+* Model fallback strategies
 
-## Engineering Concepts Demonstrated
+### Backend & Cloud
 
-- Vanilla JavaScript application structure
-- DOM manipulation and event handling
-- Asynchronous programming with `fetch()`
-- JSON request/response handling
-- Client/server separation
-- Serverless API integration
-- Responsive frontend development
-- Basic input sanitization
-- Graceful error handling
-- Static deployment with GitHub Pages
+* Cloudflare Workers
+* Serverless architecture
+* REST-style API communication
+* CORS
+* Environment secrets
+* Client/server separation
 
----
+### Software Engineering
 
-## Design Decisions
-
-- **Lightweight frontend:** The project uses plain JavaScript rather than a framework, which keeps the implementation simple and easy to inspect.
-- **Serverless API boundary:** The browser communicates with a Worker endpoint instead of embedding backend credentials or provider logic in the client.
-- **Immediate UI feedback:** User messages are rendered immediately, while the assistant response is appended after the network call completes.
-- **Client-side escaping:** User text is escaped before insertion into the DOM to reduce injection risk in the chat interface.
+* Asynchronous programming
+* JSON request/response handling
+* Input validation
+* Error handling
+* API integration
+* Basic input sanitization
+* Fault-tolerant request handling
 
 ---
 
 ## Limitations
 
-- The Worker implementation is external to this repository.
-- The backend prompt design is not visible in the repository.
-- Conversation history is not persisted in the frontend implementation.
-- The API endpoint is hard-coded in `script.js`.
+The current implementation has several intentional limitations:
+
+* The Cloudflare Worker source is maintained separately from this repository.
+* Portfolio knowledge is provided through a static system prompt rather than a retrieval system.
+* Conversation history is not persisted across requests.
+* The application depends on external LLM API availability.
+* There is no formal automated benchmark for response quality.
+* There is no vector database or document retrieval pipeline.
+
+These limitations also provide clear directions for future development.
 
 ---
 
-## Future Improvements
+## Future Directions
 
-- Include the Worker source and deployment configuration in the repository
-- Make the API endpoint configurable through environment variables or build-time settings
-- Add conversation-state handling if the backend supports multi-turn context
-- Add automated tests for message submission and response rendering
-- Add server-side validation and observability in the Worker layer
+Potential improvements include:
+
+### Retrieval-Augmented Generation
+
+Replace the static prompt with a retrieval pipeline backed by a structured portfolio knowledge base.
+
+### Persistent Multi-Turn Context
+
+Maintain conversation history so the assistant can answer follow-up questions using previous turns.
+
+### Response Evaluation
+
+Introduce an evaluation framework measuring:
+
+* factual consistency,
+* relevance,
+* response latency,
+* hallucination rate,
+* and user satisfaction.
+
+### Model Comparison
+
+Benchmark different LLMs using the same portfolio context and evaluation dataset.
+
+### Prompt Robustness Testing
+
+Evaluate how the system behaves under:
+
+* ambiguous questions,
+* adversarial prompts,
+* unsupported questions,
+* and attempts to elicit information outside the provided context.
+
+### Observability
+
+Add structured logging and monitoring for:
+
+* request latency,
+* model failures,
+* rate limits,
+* fallback frequency,
+* and response errors.
 
 ---
 
-## Live Demo
+## Outcome
 
-https://drishtichaudhary.github.io/ai-portfolio-assistant/
+The result is a publicly deployed conversational portfolio system that connects a static browser interface to a serverless LLM backend.
+
+The project demonstrates an end-to-end LLM application architecture:
+
+```text
+User Interaction
+       ↓
+Frontend Application
+       ↓
+Serverless API Layer
+       ↓
+Prompt / Context Construction
+       ↓
+LLM Inference
+       ↓
+Structured Response
+       ↓
+User Interface
+```
+
+Rather than presenting AI as an isolated model call, the project demonstrates how an LLM can be incorporated into a complete software system with API boundaries, security considerations, validation, failure handling, and deployment infrastructure.
+
+---
+
+## Demonstration
+
+An interactive live demonstration of the conversational interface is deployed and accessible at:
+
+**[https://drishtichaudhary.github.io/ai-portfolio-assistant/](https://drishtichaudhary.github.io/ai-portfolio-assistant/)**
 
 ---
 
 ## Contact
 
-**Drishti Chaudhary**  
-drishtichaudhary616@gmail.com  
-LinkedIn: https://www.linkedin.com/in/drishti-chaudhary-047855206  
-Portfolio: https://drishtichaudhary.github.io/Portfolio-site/
-GitHub: https://github.com/drishtichaudhary
+* **Name:** Drishti Chaudhary
+* **Email:** [drishtichaudhary616@gmail.com](mailto:drishtichaudhary616@gmail.com)
+* **LinkedIn:** [https://www.linkedin.com/in/drishti-chaudhary-047855206](https://www.linkedin.com/in/drishti-chaudhary-047855206)
+* **GitHub:** [https://github.com/drishtichaudhary](https://github.com/drishtichaudhary)
+* **Portfolio:** [https://drishtichaudhary.github.io/Portfolio-site/](https://drishtichaudhary.github.io/Portfolio-site/)
+
+```
