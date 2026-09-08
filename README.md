@@ -1,4 +1,4 @@
-# AI Portfolio Assistant
+# Portolio: AI Portfolio Assistant
 
 An LLM-powered conversational portfolio application that allows visitors to ask natural-language questions about Drishti Chaudhary's education, research, internships, projects, leadership, and technical skills.
 
